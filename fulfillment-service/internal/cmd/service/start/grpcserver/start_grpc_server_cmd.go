@@ -362,6 +362,16 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		return fmt.Errorf("failed to create default tenancy logic: %w", err)
 	}
 
+	// Create shared tenancy logic for platform-scoped resources like BareMetalInstanceType:
+	c.logger.InfoContext(ctx, "Creating shared tenancy logic")
+	var sharedTenancyLogic auth.TenancyLogic
+	sharedTenancyLogic, err = auth.NewSharedTenancyLogic().
+		SetLogger(c.logger).
+		Build()
+	if err != nil {
+		return fmt.Errorf("failed to create shared tenancy logic: %w", err)
+	}
+
 	// Prepare the authorization interceptor:
 	c.logger.InfoContext(ctx, "Creating Rego authorization interceptor")
 	authzInterceptor, err := auth.NewGrpcAuthzInterceptor().
@@ -1020,7 +1030,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(publicAttributionLogic).
-		SetTenancyLogic(tenancyLogic).
+		SetTenancyLogic(sharedTenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {
@@ -1034,7 +1044,7 @@ func (c *runnerContext) run(cmd *cobra.Command, argv []string) error { //nolint:
 		SetLogger(c.logger).
 		SetNotifier(notifier).
 		SetAttributionLogic(privateAttributionLogic).
-		SetTenancyLogic(tenancyLogic).
+		SetTenancyLogic(sharedTenancyLogic).
 		SetMetricsRegisterer(metricsRegisterer).
 		Build()
 	if err != nil {

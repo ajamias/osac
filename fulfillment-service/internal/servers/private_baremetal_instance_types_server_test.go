@@ -18,11 +18,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	privatev1 "github.com/osac-project/fulfillment-service/internal/api/osac/private/v1"
+	"github.com/osac-project/fulfillment-service/internal/auth"
 )
 
 var _ = Describe("Private bare metal instance types server", func() {
@@ -512,6 +514,290 @@ var _ = Describe("Private bare metal instance types server", func() {
 				Expect(status.Code()).To(Equal(grpccodes.InvalidArgument))
 				Expect(status.Message()).To(ContainSubstring("name"))
 				Expect(status.Message()).To(ContainSubstring("immutable"))
+			})
+		})
+
+		Describe("Tenant isolation", func() {
+			var sharedTenancyServer *PrivateBareMetalInstanceTypesServer
+
+			BeforeEach(func() {
+				var err error
+
+				// Create a separate mock tenancy logic that returns SharedTenant for BareMetalInstanceTypes
+				sharedTenancy := auth.NewMockTenancyLogic(ctrl)
+				sharedTenancy.EXPECT().DetermineAssignableTenants(gomock.Any()).
+					Return(auth.SharedTenants, nil).
+					AnyTimes()
+				sharedTenancy.EXPECT().DetermineDefaultTenant(gomock.Any()).
+					Return(auth.SharedTenant, nil).
+					AnyTimes()
+				sharedTenancy.EXPECT().DetermineVisibleTenants(gomock.Any()).
+					Return(auth.SharedTenants, nil).
+					AnyTimes()
+
+				// Create a server configured for shared tenant behavior
+				sharedTenancyServer, err = NewPrivateBareMetalInstanceTypesServer().
+					SetLogger(logger).
+					SetAttributionLogic(attribution).
+					SetTenancyLogic(sharedTenancy).
+					Build()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Sets tenant metadata to shared for created objects", func() {
+				response, err := sharedTenancyServer.Create(ctx, privatev1.BareMetalInstanceTypesCreateRequest_builder{
+					Object: privatev1.BareMetalInstanceType_builder{
+						Metadata: privatev1.Metadata_builder{
+							Name: "shared-tenant-test",
+						}.Build(),
+						Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+							Hardware: privatev1.BareMetalHardwareSpec_builder{
+								Cpu: privatev1.BareMetalCPUSpec_builder{
+									Cores:          16,
+									Architecture:   "x86_64",
+									ThreadsPerCore: 2,
+								}.Build(),
+								Memory: privatev1.BareMetalMemorySpec_builder{
+									TotalGb: 64,
+								}.Build(),
+							}.Build(),
+							HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+								MatchLabels: map[string]string{
+									"hardware.profile": "shared-test",
+								},
+							}.Build(),
+							Description: "Test instance type for tenant isolation validation.",
+						}.Build(),
+					}.Build(),
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+
+				object := response.GetObject()
+				Expect(object).ToNot(BeNil())
+				Expect(object.GetMetadata().GetTenant()).To(Equal("shared"))
+			})
+
+			It("Verifies tenant field is set correctly for different operations", func() {
+				// Test Create operation
+				createResponse, err := sharedTenancyServer.Create(ctx, privatev1.BareMetalInstanceTypesCreateRequest_builder{
+					Object: privatev1.BareMetalInstanceType_builder{
+						Metadata: privatev1.Metadata_builder{
+							Name: "tenant-ops-test",
+						}.Build(),
+						Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+							Hardware: privatev1.BareMetalHardwareSpec_builder{
+								Cpu: privatev1.BareMetalCPUSpec_builder{
+									Cores:          8,
+									Architecture:   "x86_64",
+									ThreadsPerCore: 2,
+								}.Build(),
+								Memory: privatev1.BareMetalMemorySpec_builder{
+									TotalGb: 32,
+								}.Build(),
+							}.Build(),
+							HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+								MatchLabels: map[string]string{
+									"test": "operations",
+								},
+							}.Build(),
+							Description: "Initial description",
+						}.Build(),
+					}.Build(),
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(createResponse).ToNot(BeNil())
+
+				createObject := createResponse.GetObject()
+				Expect(createObject).ToNot(BeNil())
+				Expect(createObject.GetMetadata().GetTenant()).To(Equal("shared"))
+
+				// Test Get operation
+				getResponse, err := sharedTenancyServer.Get(ctx, privatev1.BareMetalInstanceTypesGetRequest_builder{
+					Id: createObject.GetId(),
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(getResponse).ToNot(BeNil())
+
+				getObject := getResponse.GetObject()
+				Expect(getObject).ToNot(BeNil())
+				Expect(getObject.GetMetadata().GetTenant()).To(Equal("shared"))
+
+				// Test Update operation (only description is mutable)
+				updateResponse, err := sharedTenancyServer.Update(ctx, privatev1.BareMetalInstanceTypesUpdateRequest_builder{
+					Object: privatev1.BareMetalInstanceType_builder{
+						Id: createObject.GetId(),
+						Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+							Description: "Updated description",
+						}.Build(),
+					}.Build(),
+					UpdateMask: &fieldmaskpb.FieldMask{
+						Paths: []string{"spec.description"},
+					},
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updateResponse).ToNot(BeNil())
+
+				updateObject := updateResponse.GetObject()
+				Expect(updateObject).ToNot(BeNil())
+				Expect(updateObject.GetMetadata().GetTenant()).To(Equal("shared"))
+				Expect(updateObject.GetSpec().GetDescription()).To(Equal("Updated description"))
+			})
+
+			It("Filters objects correctly for user tenant visibility", func() {
+				// Create a few BareMetalInstanceTypes
+				_, err := sharedTenancyServer.Create(ctx, privatev1.BareMetalInstanceTypesCreateRequest_builder{
+					Object: privatev1.BareMetalInstanceType_builder{
+						Metadata: privatev1.Metadata_builder{
+							Name: "visible-type-1",
+						}.Build(),
+						Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+							Hardware: privatev1.BareMetalHardwareSpec_builder{
+								Cpu: privatev1.BareMetalCPUSpec_builder{
+									Cores:          4,
+									Architecture:   "x86_64",
+									ThreadsPerCore: 2,
+								}.Build(),
+								Memory: privatev1.BareMetalMemorySpec_builder{
+									TotalGb: 16,
+								}.Build(),
+							}.Build(),
+							HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+								MatchLabels: map[string]string{
+									"visibility": "test1",
+								},
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = sharedTenancyServer.Create(ctx, privatev1.BareMetalInstanceTypesCreateRequest_builder{
+					Object: privatev1.BareMetalInstanceType_builder{
+						Metadata: privatev1.Metadata_builder{
+							Name: "visible-type-2",
+						}.Build(),
+						Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+							Hardware: privatev1.BareMetalHardwareSpec_builder{
+								Cpu: privatev1.BareMetalCPUSpec_builder{
+									Cores:          8,
+									Architecture:   "x86_64",
+									ThreadsPerCore: 2,
+								}.Build(),
+								Memory: privatev1.BareMetalMemorySpec_builder{
+									TotalGb: 32,
+								}.Build(),
+							}.Build(),
+							HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+								MatchLabels: map[string]string{
+									"visibility": "test2",
+								},
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+
+				// List all objects - should see both since they're in user's tenant
+				response, err := sharedTenancyServer.List(ctx, privatev1.BareMetalInstanceTypesListRequest_builder{}.Build())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.GetItems()).To(HaveLen(2))
+
+				// Verify all returned objects have user's tenant
+				for _, item := range response.GetItems() {
+					Expect(item.GetMetadata().GetTenant()).To(Equal("shared"))
+				}
+			})
+
+			It("Does not set owner-reference annotations for standalone resources", func() {
+				// BareMetalInstanceTypes are tenant-scoped catalog resources without parent resources
+				// Therefore, they should not have owner-reference annotations
+				response, err := sharedTenancyServer.Create(ctx, privatev1.BareMetalInstanceTypesCreateRequest_builder{
+					Object: privatev1.BareMetalInstanceType_builder{
+						Metadata: privatev1.Metadata_builder{
+							Name: "standalone-resource",
+						}.Build(),
+						Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+							Hardware: privatev1.BareMetalHardwareSpec_builder{
+								Cpu: privatev1.BareMetalCPUSpec_builder{
+									Cores:          4,
+									Architecture:   "x86_64",
+									ThreadsPerCore: 2,
+								}.Build(),
+								Memory: privatev1.BareMetalMemorySpec_builder{
+									TotalGb: 16,
+								}.Build(),
+							}.Build(),
+							HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+								MatchLabels: map[string]string{
+									"test": "standalone",
+								},
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+
+				object := response.GetObject()
+				Expect(object).ToNot(BeNil())
+
+				// Verify tenant field is set to user's tenant (this is what we care about for tenant isolation)
+				Expect(object.GetMetadata().GetTenant()).To(Equal("shared"))
+
+				// Verify owner-reference annotation is NOT set (BareMetalInstanceTypes are standalone)
+				annotations := object.GetMetadata().GetAnnotations()
+				if annotations != nil {
+					Expect(annotations).ToNot(HaveKey("osac.openshift.io/owner-reference"))
+				}
+			})
+
+			It("Preserves manually set owner-reference annotations if provided", func() {
+				// While BareMetalInstanceTypes don't automatically set owner-reference,
+				// they should preserve any manually set annotations
+				response, err := sharedTenancyServer.Create(ctx, privatev1.BareMetalInstanceTypesCreateRequest_builder{
+					Object: privatev1.BareMetalInstanceType_builder{
+						Metadata: privatev1.Metadata_builder{
+							Name: "manual-owner-ref",
+							Annotations: map[string]string{
+								"osac.openshift.io/owner-reference": "manual-parent",
+								"custom.annotation":                 "test-value",
+							},
+						}.Build(),
+						Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+							Hardware: privatev1.BareMetalHardwareSpec_builder{
+								Cpu: privatev1.BareMetalCPUSpec_builder{
+									Cores:          8,
+									Architecture:   "x86_64",
+									ThreadsPerCore: 2,
+								}.Build(),
+								Memory: privatev1.BareMetalMemorySpec_builder{
+									TotalGb: 32,
+								}.Build(),
+							}.Build(),
+							HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+								MatchLabels: map[string]string{
+									"test": "manual",
+								},
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+
+				object := response.GetObject()
+				Expect(object).ToNot(BeNil())
+
+				// Verify tenant field is set to user's tenant
+				Expect(object.GetMetadata().GetTenant()).To(Equal("shared"))
+
+				// Verify manually set annotations are preserved
+				annotations := object.GetMetadata().GetAnnotations()
+				Expect(annotations).ToNot(BeNil())
+				Expect(annotations).To(HaveKeyWithValue("osac.openshift.io/owner-reference", "manual-parent"))
+				Expect(annotations).To(HaveKeyWithValue("custom.annotation", "test-value"))
 			})
 		})
 	})
