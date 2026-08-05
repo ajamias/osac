@@ -177,6 +177,14 @@ const (
 	// Set condition status True on success.
 	// Set condition status False with reason Progressing or TemplateFailed while not complete.
 	HostConditionDeprovisionTemplateComplete BareMetalInstanceConditionType = "DeprovisionTemplateComplete"
+
+	// HostConditionHostSelectionSucceeded tracks successful host selection during inventory allocation.
+	// Set condition status True when a matching host is found and claimed.
+	HostConditionHostSelectionSucceeded BareMetalInstanceConditionType = "HostSelectionSucceeded"
+
+	// HostConditionHostSelectionFailed tracks failed host selection during inventory allocation.
+	// Set condition status True when no matching hosts are found for the given selector labels.
+	HostConditionHostSelectionFailed BareMetalInstanceConditionType = "HostSelectionFailed"
 )
 
 // Host condition reason values
@@ -202,6 +210,15 @@ const (
 	// HostConditionReasonPowerSyncRequired indicates a restart is required
 	// Reserved for future use — not set by any current code path
 	HostConditionReasonPowerSyncRequired = "PowerSyncRequired"
+
+	// HostConditionReasonHostFound indicates that a matching host was found during selection.
+	HostConditionReasonHostFound = "HostFound"
+
+	// HostConditionReasonNoMatchingHosts indicates that no hosts matched the selector labels.
+	HostConditionReasonNoMatchingHosts = "NoMatchingHosts"
+
+	// HostConditionReasonSelectorRequired indicates that host selector labels are required but missing.
+	HostConditionReasonSelectorRequired = "SelectorRequired"
 )
 
 // HostSelectorSpec defines additional host selection constraints.
@@ -237,6 +254,14 @@ type BareMetalInstanceStatus struct {
 	// RestartTrigger is the observed restart version of the instance
 	// +kubebuilder:validation:Optional
 	RestartTrigger int64 `json:"restartTrigger"`
+	// ClaimedHostID is the ID of the host that was claimed during host selection.
+	// Persisted to support idempotency and restart recovery.
+	// +kubebuilder:validation:Optional
+	ClaimedHostID string `json:"claimedHostID,omitempty"`
+	// HostLabelSelector contains the labels that were used for host selection.
+	// Persisted for observability and debugging.
+	// +kubebuilder:validation:Optional
+	HostLabelSelector map[string]string `json:"hostLabelSelector,omitempty"`
 }
 
 // GetPoolID returns the owning BareMetalPool UID if the BareMetalInstance is owned by a BareMetalPool.
