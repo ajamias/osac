@@ -690,6 +690,137 @@ var _ = Describe("mutateBMI", func() {
 		Expect(obj.Spec.NetworkAttachments[0].Interface).To(BeEmpty())
 		Expect(obj.Spec.NetworkAttachments[0].Primary).To(BeFalse())
 	})
+
+	It("should resolve instance_type and map host_label_selector to Selector.HostSelector", func() {
+		catalogItemsClient := defaultFakeCatalogItemsClient()
+		instanceTypesClient := &fakeBareMetalInstanceTypesClient{
+			getResponse: privatev1.BareMetalInstanceTypesGetResponse_builder{
+				Object: privatev1.BareMetalInstanceType_builder{
+					Id: "gpu-large",
+					Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+						HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+							MatchLabels: map[string]string{
+								"accelerator": "gpu",
+								"size":        "large",
+							},
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			}.Build(),
+		}
+
+		t := &task{
+			r: &function{
+				logger:                              logger,
+				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
+				bareMetalInstanceTypesClient:        instanceTypesClient,
+			},
+			bareMetalInstance: privatev1.BareMetalInstance_builder{
+				Id: "bmi-test",
+				Spec: privatev1.BareMetalInstanceSpec_builder{
+					CatalogItem:  "catalog-1",
+					InstanceType: "gpu-large",
+				}.Build(),
+			}.Build(),
+		}
+
+		var obj bmfov1alpha1.BareMetalInstance
+		err := t.mutateBMI(ctx, &obj)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(obj.Spec.Selector.HostSelector).To(HaveLen(2))
+		Expect(obj.Spec.Selector.HostSelector["accelerator"]).To(Equal("gpu"))
+		Expect(obj.Spec.Selector.HostSelector["size"]).To(Equal("large"))
+		Expect(obj.Spec.HostType).To(BeEmpty(), "HostType should not be set when instance_type is provided")
+	})
+
+	It("should use default HostType when instance_type is not set", func() {
+		catalogItemsClient := defaultFakeCatalogItemsClient()
+
+		t := &task{
+			r: &function{
+				logger:                              logger,
+				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
+				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+			},
+			bareMetalInstance: privatev1.BareMetalInstance_builder{
+				Id: "bmi-test",
+				Spec: privatev1.BareMetalInstanceSpec_builder{
+					CatalogItem: "catalog-1",
+				}.Build(),
+			}.Build(),
+		}
+
+		var obj bmfov1alpha1.BareMetalInstance
+		err := t.mutateBMI(ctx, &obj)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(obj.Spec.HostType).To(Equal("default"))
+		Expect(obj.Spec.Selector.HostSelector).To(BeEmpty())
+	})
+
+	It("should return error when instance_type lookup fails", func() {
+		catalogItemsClient := defaultFakeCatalogItemsClient()
+		instanceTypesClient := &fakeBareMetalInstanceTypesClient{
+			getError: errors.New("instance type not found"),
+		}
+
+		t := &task{
+			r: &function{
+				logger:                              logger,
+				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
+				bareMetalInstanceTypesClient:        instanceTypesClient,
+			},
+			bareMetalInstance: privatev1.BareMetalInstance_builder{
+				Id: "bmi-test",
+				Spec: privatev1.BareMetalInstanceSpec_builder{
+					CatalogItem:  "catalog-1",
+					InstanceType: "missing-type",
+				}.Build(),
+			}.Build(),
+		}
+
+		var obj bmfov1alpha1.BareMetalInstance
+		err := t.mutateBMI(ctx, &obj)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to get instance type"))
+		Expect(err.Error()).To(ContainSubstring("missing-type"))
+	})
+
+	It("should handle instance_type with empty host_label_selector", func() {
+		catalogItemsClient := defaultFakeCatalogItemsClient()
+		instanceTypesClient := &fakeBareMetalInstanceTypesClient{
+			getResponse: privatev1.BareMetalInstanceTypesGetResponse_builder{
+				Object: privatev1.BareMetalInstanceType_builder{
+					Id: "basic-type",
+					Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+						HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+							MatchLabels: map[string]string{},
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			}.Build(),
+		}
+
+		t := &task{
+			r: &function{
+				logger:                              logger,
+				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
+				bareMetalInstanceTypesClient:        instanceTypesClient,
+			},
+			bareMetalInstance: privatev1.BareMetalInstance_builder{
+				Id: "bmi-test",
+				Spec: privatev1.BareMetalInstanceSpec_builder{
+					CatalogItem:  "catalog-1",
+					InstanceType: "basic-type",
+				}.Build(),
+			}.Build(),
+		}
+
+		var obj bmfov1alpha1.BareMetalInstance
+		err := t.mutateBMI(ctx, &obj)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(obj.Spec.Selector.HostSelector).To(BeEmpty())
+		Expect(obj.Spec.HostType).To(BeEmpty(), "HostType should not be set even when instance_type has empty labels")
+	})
 })
 
 var _ = Describe("update", func() {
@@ -1762,5 +1893,16 @@ type fakeCatalogItemsClient struct {
 }
 
 func (c *fakeCatalogItemsClient) Get(ctx context.Context, req *privatev1.BareMetalInstanceCatalogItemsGetRequest, opts ...grpc.CallOption) (*privatev1.BareMetalInstanceCatalogItemsGetResponse, error) {
+	return c.getResponse, c.getError
+}
+
+// fakeBareMetalInstanceTypesClient is a test double for the BareMetalInstanceTypesClient.
+type fakeBareMetalInstanceTypesClient struct {
+	privatev1.BareMetalInstanceTypesClient
+	getResponse *privatev1.BareMetalInstanceTypesGetResponse
+	getError    error
+}
+
+func (c *fakeBareMetalInstanceTypesClient) Get(ctx context.Context, req *privatev1.BareMetalInstanceTypesGetRequest, opts ...grpc.CallOption) (*privatev1.BareMetalInstanceTypesGetResponse, error) {
 	return c.getResponse, c.getError
 }
