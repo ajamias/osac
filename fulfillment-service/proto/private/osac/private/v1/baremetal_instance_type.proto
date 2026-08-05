@@ -106,6 +106,14 @@ message BareMetalInstanceSpec {
   // with an ExternalIPAttachment for this instance atomically during creation.
   // Immutable after creation.
   bool auto_external_ip_attachment = 9 [(google.api.field_behavior) = IMMUTABLE];
+
+  // Reference to a BareMetalInstanceType by ID. Required on create; immutable after creation.
+  // The system resolves this to the instance type's host_label_selector and maps it
+  // to the CRD's Selector.HostSelector for host selection.
+  string instance_type = 20 [
+    (google.api.field_behavior) = IMMUTABLE,
+    (buf.validate.field).string.min_len = 1
+  ];
 }
 
 // The status contains the details of the bare metal instance provided by the system.
