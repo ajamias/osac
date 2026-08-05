@@ -17,6 +17,7 @@ limitations under the License.
 package inventory
 
 import (
+	"context"
 	"testing"
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
@@ -287,6 +288,57 @@ func TestMatchesLabels(t *testing.T) {
 
 			if match != tt.wantMatch {
 				t.Errorf("matchesLabels() = %v, want %v", match, tt.wantMatch)
+			}
+		})
+	}
+}
+
+func TestOpenStackClientFindFreeHostValidation(t *testing.T) {
+	tests := []struct {
+		name             string
+		matchExpressions map[string]string
+		wantError        bool
+		errorContains    string
+	}{
+		{
+			name:             "invalid empty key should error before querying Ironic",
+			matchExpressions: map[string]string{"": "value1"},
+			wantError:        true,
+			errorContains:    "empty label key",
+		},
+		{
+			name:             "reserved bareMetalInstanceId key should error before querying Ironic",
+			matchExpressions: map[string]string{"bareMetalInstanceId": "some-value"},
+			wantError:        true,
+			errorContains:    "reserved label key",
+		},
+		{
+			name:             "reserved managedBy key should error before querying Ironic",
+			matchExpressions: map[string]string{"managedBy": "some-value"},
+			wantError:        true,
+			errorContains:    "reserved label key",
+		},
+		{
+			name:             "key with spaces should error before querying Ironic",
+			matchExpressions: map[string]string{"key with spaces": "value1"},
+			wantError:        true,
+			errorContains:    "invalid label key",
+		},
+	}
+
+	// Create a mock client to test validation without hitting actual API calls
+	client := &OpenStackClient{}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.findFreeHost(context.Background(), tt.matchExpressions)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("findFreeHost() expected validation error but got nil")
+				} else if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
+					t.Errorf("findFreeHost() error = %v, want error containing %q", err, tt.errorContains)
+				}
 			}
 		})
 	}

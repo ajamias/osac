@@ -163,6 +163,11 @@ func (c *OpenStackClient) FindFreeHost(ctx context.Context, matchExpressions map
 }
 
 func (c *OpenStackClient) findFreeHost(ctx context.Context, matchExpressions map[string]string) (*Host, error) {
+	// Validate match expressions before querying Ironic
+	if err := validateMatchExpressions(matchExpressions); err != nil {
+		return nil, err
+	}
+
 	listOpts := nodes.ListOpts{
 		Fields: []string{
 			"uuid",
@@ -216,6 +221,15 @@ func (c *OpenStackClient) findFreeHost(ctx context.Context, matchExpressions map
 				matchManagedBy = shared.OsacDefaultManagedByValue
 			}
 			if managedBy != matchManagedBy {
+				continue
+			}
+
+			// Check arbitrary label matching against osac_labels
+			matches, err := matchesLabels(node, matchExpressions)
+			if err != nil {
+				return false, err
+			}
+			if !matches {
 				continue
 			}
 
