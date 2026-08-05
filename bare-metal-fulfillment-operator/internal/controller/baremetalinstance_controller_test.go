@@ -422,6 +422,213 @@ var _ = Describe("BareMetalInstance Controller", func() {
 				Expect(result).To(Equal(ctrl.Result{}))
 			})
 		})
+
+		Context("when Selector.HostSelector has labels (label-based selection)", func() {
+			BeforeEach(func() {
+				bareMetalInstance.Spec.Selector = v1alpha1.HostSelectorSpec{
+					HostSelector: map[string]string{
+						"accelerator": "gpu",
+						"size":        "large",
+					},
+				}
+			})
+
+			Context("when a matching host is found", func() {
+				BeforeEach(func() {
+					mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
+						// Verify that selector labels are passed directly without hostType
+						Expect(matchExpressions).To(HaveKeyWithValue("accelerator", "gpu"))
+						Expect(matchExpressions).To(HaveKeyWithValue("size", "large"))
+						Expect(matchExpressions).NotTo(HaveKey("hostType"))
+
+						return &inventory.Host{
+							InventoryHostID: "gpu-host-123",
+							HostClass:       hostClass,
+						}, nil
+					}
+				})
+
+				It("should set HostSelectionSucceeded condition and persist selection state", func() {
+					updateCalled := false
+					mockK8sClient.updateFunc = func(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+						updateCalled = true
+						hl := obj.(*v1alpha1.BareMetalInstance)
+						Expect(hl.Spec.ExternalHostID).To(Equal("gpu-host-123"))
+						return nil
+					}
+
+					statusUpdateCalled := false
+					mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+						statusUpdateCalled = true
+						hl := obj.(*v1alpha1.BareMetalInstance)
+
+						// Check HostSelectionSucceeded condition
+						condition := hl.GetStatusCondition(v1alpha1.HostConditionHostSelectionSucceeded)
+						Expect(condition).NotTo(BeNil())
+						Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+						Expect(condition.Reason).To(Equal(v1alpha1.HostConditionReasonHostFound))
+
+						// Check HostSelectionFailed condition is false
+						failedCondition := hl.GetStatusCondition(v1alpha1.HostConditionHostSelectionFailed)
+						Expect(failedCondition).NotTo(BeNil())
+						Expect(failedCondition.Status).To(Equal(metav1.ConditionFalse))
+
+						// Check persisted state
+						Expect(hl.Status.ClaimedHostID).To(Equal("gpu-host-123"))
+						Expect(hl.Status.HostLabelSelector).To(Equal(map[string]string{
+							"accelerator": "gpu",
+							"size":        "large",
+						}))
+
+						return nil
+					}
+
+					result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result).To(Equal(ctrl.Result{}))
+					Expect(updateCalled).To(BeTrue())
+					Expect(statusUpdateCalled).To(BeTrue())
+				})
+			})
+
+			Context("when no matching hosts are found", func() {
+				BeforeEach(func() {
+					mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
+						Expect(matchExpressions).To(HaveKeyWithValue("accelerator", "gpu"))
+						Expect(matchExpressions).To(HaveKeyWithValue("size", "large"))
+						return nil, nil
+					}
+				})
+
+				It("should set HostSelectionFailed condition and requeue", func() {
+					statusUpdateCalled := false
+					mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+						statusUpdateCalled = true
+						hl := obj.(*v1alpha1.BareMetalInstance)
+
+						// Check HostSelectionFailed condition
+						failedCondition := hl.GetStatusCondition(v1alpha1.HostConditionHostSelectionFailed)
+						Expect(failedCondition).NotTo(BeNil())
+						Expect(failedCondition.Status).To(Equal(metav1.ConditionTrue))
+						Expect(failedCondition.Reason).To(Equal(v1alpha1.HostConditionReasonNoMatchingHosts))
+
+						// Check HostSelectionSucceeded condition is false
+						succeededCondition := hl.GetStatusCondition(v1alpha1.HostConditionHostSelectionSucceeded)
+						Expect(succeededCondition).NotTo(BeNil())
+						Expect(succeededCondition.Status).To(Equal(metav1.ConditionFalse))
+
+						return nil
+					}
+
+					result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(Equal(DefaultNoFreeHostsPollIntervalDuration))
+					Expect(statusUpdateCalled).To(BeTrue())
+				})
+			})
+		})
+
+		Context("when Selector.HostSelector is empty (backward compatibility)", func() {
+			BeforeEach(func() {
+				// Ensure selector is empty for backward compatibility test
+				bareMetalInstance.Spec.Selector = v1alpha1.HostSelectorSpec{}
+			})
+
+			Context("when using existing HostType-based selection", func() {
+				BeforeEach(func() {
+					mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
+						// Verify backward compatibility: hostType should still be used
+						Expect(matchExpressions).To(HaveKeyWithValue("hostType", hostType))
+						Expect(matchExpressions).To(HaveKeyWithValue("managedBy", shared.OsacDefaultManagedByValue))
+						Expect(matchExpressions).To(HaveKeyWithValue("provisionState", shared.OsacDefaultProvisionStateValue))
+
+						return &inventory.Host{
+							InventoryHostID: "legacy-host-456",
+							HostClass:       hostClass,
+						}, nil
+					}
+				})
+
+				It("should set host selection conditions like label-based path", func() {
+					updateCalled := false
+					mockK8sClient.updateFunc = func(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+						updateCalled = true
+						hl := obj.(*v1alpha1.BareMetalInstance)
+						Expect(hl.Spec.ExternalHostID).To(Equal("legacy-host-456"))
+						return nil
+					}
+
+					statusUpdateCalled := false
+					mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+						statusUpdateCalled = true
+						hl := obj.(*v1alpha1.BareMetalInstance)
+
+						// Check HostSelectionSucceeded condition is set (same as label path)
+						condition := hl.GetStatusCondition(v1alpha1.HostConditionHostSelectionSucceeded)
+						Expect(condition).NotTo(BeNil())
+						Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+						Expect(condition.Reason).To(Equal(v1alpha1.HostConditionReasonHostFound))
+
+						// Check persisted state
+						Expect(hl.Status.ClaimedHostID).To(Equal("legacy-host-456"))
+
+						return nil
+					}
+
+					result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result).To(Equal(ctrl.Result{}))
+					Expect(updateCalled).To(BeTrue())
+					Expect(statusUpdateCalled).To(BeTrue())
+				})
+			})
+		})
+
+		Context("when resuming from persisted host ID", func() {
+			BeforeEach(func() {
+				bareMetalInstance.Spec.ExternalHostID = "persisted-host-789"
+				bareMetalInstance.Status.ClaimedHostID = "persisted-host-789"
+				bareMetalInstance.Status.HostLabelSelector = map[string]string{
+					"tier": "premium",
+				}
+			})
+
+			It("should proceed to AssignHost without changing persisted state", func() {
+				assignCalled := false
+				mockInvClient.assignHostFunc = func(ctx context.Context, inventoryHostID string, bareMetalInstanceID string, labels map[string]string) (*inventory.Host, error) {
+					assignCalled = true
+					Expect(inventoryHostID).To(Equal("persisted-host-789"))
+					return &inventory.Host{
+						InventoryHostID: inventoryHostID,
+						HostClass:       hostClass,
+					}, nil
+				}
+
+				statusUpdateCalled := false
+				mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+					statusUpdateCalled = true
+					hl := obj.(*v1alpha1.BareMetalInstance)
+
+					// Status fields should remain unchanged from initial state
+					Expect(hl.Status.ClaimedHostID).To(Equal("persisted-host-789"))
+					Expect(hl.Status.HostLabelSelector).To(Equal(map[string]string{
+						"tier": "premium",
+					}))
+
+					return nil
+				}
+
+				result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(Equal(ctrl.Result{}))
+				Expect(assignCalled).To(BeTrue())
+				Expect(statusUpdateCalled).To(BeTrue())
+			})
+		})
 	})
 
 	Describe("reconcileManagement", func() {
