@@ -197,16 +197,27 @@ func (r *BareMetalInstanceReconciler) reconcileInventory(ctx context.Context, ba
 	}
 
 	if bareMetalInstance.Spec.ExternalHostID == "" {
-		matchExpressions := maps.Clone(bareMetalInstance.Spec.Selector.HostSelector)
-		if matchExpressions == nil {
-			matchExpressions = map[string]string{}
-		}
-		matchExpressions["hostType"] = bareMetalInstance.Spec.HostType
-		if v, ok := matchExpressions["managedBy"]; !ok || v == "" {
-			matchExpressions["managedBy"] = shared.OsacDefaultManagedByValue
-		}
-		if v, ok := matchExpressions["provisionState"]; !ok || v == "" {
-			matchExpressions["provisionState"] = shared.OsacDefaultProvisionStateValue
+		var matchExpressions map[string]string
+		var selectorLabels map[string]string
+
+		// Label-based selection: use Selector.HostSelector labels directly
+		if len(bareMetalInstance.Spec.Selector.HostSelector) > 0 {
+			matchExpressions = maps.Clone(bareMetalInstance.Spec.Selector.HostSelector)
+			selectorLabels = maps.Clone(bareMetalInstance.Spec.Selector.HostSelector)
+			log.Info("Using label-based host selection", "selectorLabels", selectorLabels)
+		} else {
+			// Backward compatibility: use existing HostType-based selection
+			matchExpressions = map[string]string{
+				"hostType": bareMetalInstance.Spec.HostType,
+			}
+			if v, ok := matchExpressions["managedBy"]; !ok || v == "" {
+				matchExpressions["managedBy"] = shared.OsacDefaultManagedByValue
+			}
+			if v, ok := matchExpressions["provisionState"]; !ok || v == "" {
+				matchExpressions["provisionState"] = shared.OsacDefaultProvisionStateValue
+			}
+			selectorLabels = make(map[string]string) // Empty for backward compat
+			log.Info("Using HostType-based host selection", "hostType", bareMetalInstance.Spec.HostType)
 		}
 
 		inventoryHost, err := r.InventoryClient.FindFreeHost(ctx, matchExpressions)
@@ -214,15 +225,31 @@ func (r *BareMetalInstanceReconciler) reconcileInventory(ctx context.Context, ba
 			log.Error(err, "Failed to find a free host", "matchExpressions", matchExpressions)
 			return ctrl.Result{}, err
 		}
+
 		if inventoryHost == nil {
 			log.Info("No matching hosts available", "matchExpressions", matchExpressions)
 			bareMetalInstance.Status.Phase = v1alpha1.BareMetalInstancePhaseFailed
+
+			// Set host selection conditions for both label-based and backward compat paths
+			bareMetalInstance.SetStatusCondition(
+				v1alpha1.HostConditionHostSelectionFailed,
+				metav1.ConditionTrue,
+				v1alpha1.HostConditionReasonNoMatchingHosts,
+				"No matching hosts available",
+			)
+			bareMetalInstance.SetStatusCondition(
+				v1alpha1.HostConditionHostSelectionSucceeded,
+				metav1.ConditionFalse,
+				v1alpha1.HostConditionReasonNoMatchingHosts,
+				"No matching hosts available",
+			)
 			bareMetalInstance.SetStatusCondition(
 				v1alpha1.HostConditionAllocated,
 				metav1.ConditionFalse,
 				"Failed",
 				"No matching hosts available",
 			)
+
 			return ctrl.Result{RequeueAfter: r.NoFreeHostsPollIntervalDuration}, nil
 		}
 
@@ -231,6 +258,22 @@ func (r *BareMetalInstanceReconciler) reconcileInventory(ctx context.Context, ba
 			log.Error(err, "Failed to update BareMetalInstance CR with ExternalHostID", "InventoryHostID", inventoryHost.InventoryHostID)
 			return ctrl.Result{}, err
 		}
+
+		// Set host selection success conditions and persist selection state
+		bareMetalInstance.Status.ClaimedHostID = inventoryHost.InventoryHostID
+		bareMetalInstance.Status.HostLabelSelector = selectorLabels
+		bareMetalInstance.SetStatusCondition(
+			v1alpha1.HostConditionHostSelectionSucceeded,
+			metav1.ConditionTrue,
+			v1alpha1.HostConditionReasonHostFound,
+			fmt.Sprintf("Host %s selected successfully", inventoryHost.InventoryHostID),
+		)
+		bareMetalInstance.SetStatusCondition(
+			v1alpha1.HostConditionHostSelectionFailed,
+			metav1.ConditionFalse,
+			v1alpha1.HostConditionReasonHostFound,
+			"Host found and selected",
+		)
 
 		log.Info("Successfully updated BareMetalInstance with inventory host id")
 		return ctrl.Result{}, nil
@@ -289,6 +332,7 @@ func (r *BareMetalInstanceReconciler) reconcileInventory(ctx context.Context, ba
 
 	// Update status to indicate successful allocation
 	bareMetalInstance.Status.Phase = v1alpha1.BareMetalInstancePhaseProgressing
+	bareMetalInstance.Status.ClaimedHostID = inventoryHost.InventoryHostID
 	bareMetalInstance.SetStatusCondition(
 		v1alpha1.HostConditionAllocated,
 		metav1.ConditionTrue,
