@@ -437,3 +437,43 @@ func validateMatchExpressions(matchExpressions map[string]string) error {
 
 	return nil
 }
+
+// matchesLabels checks if an Ironic node's osac_labels match the provided label expressions
+func matchesLabels(node *nodes.Node, matchExpressions map[string]string) (bool, error) {
+	// Empty or nil match expressions match any node
+	if len(matchExpressions) == 0 {
+		return true, nil
+	}
+
+	// Get the osac_labels map from the node's Extra field
+	labelsMap, ok := node.Extra["osac_labels"].(map[string]interface{})
+	if !ok {
+		// Node has no osac_labels or wrong type - doesn't match any requirements
+		return false, nil
+	}
+
+	// Check each required label expression
+	for key, expectedValue := range matchExpressions {
+		nodeValue, exists := labelsMap[key]
+		if !exists {
+			// Required label key is missing
+			return false, nil
+		}
+
+		// Convert node value to string for comparison
+		nodeValueStr, ok := nodeValue.(string)
+		if !ok {
+			// Label value is not a string - doesn't match
+			return false, nil
+		}
+
+		// Perform exact string matching
+		if nodeValueStr != expectedValue {
+			// Label value doesn't match
+			return false, nil
+		}
+	}
+
+	// All required labels match
+	return true, nil
+}

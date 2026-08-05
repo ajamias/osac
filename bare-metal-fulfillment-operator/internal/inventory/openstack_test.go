@@ -18,6 +18,8 @@ package inventory
 
 import (
 	"testing"
+
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 )
 
 func TestValidateMatchExpressions(t *testing.T) {
@@ -120,4 +122,172 @@ func stringContainsSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestMatchesLabels(t *testing.T) {
+	tests := []struct {
+		name             string
+		node             *nodes.Node
+		matchExpressions map[string]string
+		wantMatch        bool
+		wantError        bool
+		errorContains    string
+	}{
+		{
+			name: "node with matching labels",
+			node: &nodes.Node{
+				UUID: "test-node-1",
+				Extra: map[string]interface{}{
+					"osac_labels": map[string]interface{}{
+						"environment": "production",
+						"hardware":    "gpu-large",
+					},
+				},
+			},
+			matchExpressions: map[string]string{"environment": "production", "hardware": "gpu-large"},
+			wantMatch:        true,
+			wantError:        false,
+		},
+		{
+			name: "node with partial matching labels",
+			node: &nodes.Node{
+				UUID: "test-node-2",
+				Extra: map[string]interface{}{
+					"osac_labels": map[string]interface{}{
+						"environment": "production",
+						"hardware":    "gpu-small",
+					},
+				},
+			},
+			matchExpressions: map[string]string{"environment": "production", "hardware": "gpu-large"},
+			wantMatch:        false,
+			wantError:        false,
+		},
+		{
+			name: "node missing required labels",
+			node: &nodes.Node{
+				UUID: "test-node-3",
+				Extra: map[string]interface{}{
+					"osac_labels": map[string]interface{}{
+						"environment": "staging",
+					},
+				},
+			},
+			matchExpressions: map[string]string{"environment": "production", "hardware": "gpu-large"},
+			wantMatch:        false,
+			wantError:        false,
+		},
+		{
+			name: "node with no osac_labels",
+			node: &nodes.Node{
+				UUID:  "test-node-4",
+				Extra: map[string]interface{}{},
+			},
+			matchExpressions: map[string]string{"environment": "production"},
+			wantMatch:        false,
+			wantError:        false,
+		},
+		{
+			name: "node with nil Extra",
+			node: &nodes.Node{
+				UUID:  "test-node-5",
+				Extra: nil,
+			},
+			matchExpressions: map[string]string{"environment": "production"},
+			wantMatch:        false,
+			wantError:        false,
+		},
+		{
+			name: "empty match expressions matches any node",
+			node: &nodes.Node{
+				UUID: "test-node-6",
+				Extra: map[string]interface{}{
+					"osac_labels": map[string]interface{}{
+						"environment": "production",
+					},
+				},
+			},
+			matchExpressions: map[string]string{},
+			wantMatch:        true,
+			wantError:        false,
+		},
+		{
+			name: "nil match expressions matches any node",
+			node: &nodes.Node{
+				UUID: "test-node-7",
+				Extra: map[string]interface{}{
+					"osac_labels": map[string]interface{}{
+						"environment": "production",
+					},
+				},
+			},
+			matchExpressions: nil,
+			wantMatch:        true,
+			wantError:        false,
+		},
+		{
+			name: "node with malformed osac_labels type",
+			node: &nodes.Node{
+				UUID: "test-node-8",
+				Extra: map[string]interface{}{
+					"osac_labels": "not-a-map",
+				},
+			},
+			matchExpressions: map[string]string{"environment": "production"},
+			wantMatch:        false,
+			wantError:        false,
+		},
+		{
+			name: "exact string matching",
+			node: &nodes.Node{
+				UUID: "test-node-9",
+				Extra: map[string]interface{}{
+					"osac_labels": map[string]interface{}{
+						"version": "1.2.3",
+					},
+				},
+			},
+			matchExpressions: map[string]string{"version": "1.2"},
+			wantMatch:        false,
+			wantError:        false,
+		},
+		{
+			name: "empty value matching",
+			node: &nodes.Node{
+				UUID: "test-node-10",
+				Extra: map[string]interface{}{
+					"osac_labels": map[string]interface{}{
+						"tag": "",
+					},
+				},
+			},
+			matchExpressions: map[string]string{"tag": ""},
+			wantMatch:        true,
+			wantError:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match, err := matchesLabels(tt.node, tt.matchExpressions)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("matchesLabels() expected error but got nil")
+				} else if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
+					t.Errorf("matchesLabels() error = %v, want error containing %q", err, tt.errorContains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("matchesLabels() unexpected error = %v", err)
+				return
+			}
+
+			if match != tt.wantMatch {
+				t.Errorf("matchesLabels() = %v, want %v", match, tt.wantMatch)
+			}
+		})
+	}
 }
