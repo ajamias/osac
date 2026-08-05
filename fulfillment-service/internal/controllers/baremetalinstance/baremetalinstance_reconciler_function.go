@@ -62,6 +62,7 @@ type function struct {
 	hubCache                            controllers.HubCache
 	bareMetalInstancesClient            privatev1.BareMetalInstancesClient
 	bareMetalInstanceCatalogItemsClient privatev1.BareMetalInstanceCatalogItemsClient
+	bareMetalInstanceTypesClient        privatev1.BareMetalInstanceTypesClient
 	hubsClient                          privatev1.HubsClient
 	maskCalculator                      *masks.Calculator
 }
@@ -117,6 +118,7 @@ func (b *FunctionBuilder) Build() (result controllers.ReconcilerFunction[*privat
 		logger:                              b.logger,
 		bareMetalInstancesClient:            privatev1.NewBareMetalInstancesClient(b.connection),
 		bareMetalInstanceCatalogItemsClient: privatev1.NewBareMetalInstanceCatalogItemsClient(b.connection),
+		bareMetalInstanceTypesClient:        privatev1.NewBareMetalInstanceTypesClient(b.connection),
 		hubsClient:                          privatev1.NewHubsClient(b.connection),
 		hubCache:                            b.hubCache,
 		maskCalculator:                      masks.NewCalculator().Build(),
@@ -568,7 +570,33 @@ func (t *task) mutateBMI(ctx context.Context, object *bmfov1alpha1.BareMetalInst
 		return fmt.Errorf("failed to get catalog item '%s': %w", catalogItemID, err)
 	}
 
-	object.Spec.HostType = defaultHostType
+	// Resolve instance type and set host selector or use default host type
+	if t.bareMetalInstance.GetSpec().GetInstanceType() != "" {
+		// Resolve instance type to get host label selector
+		instanceTypeResp, err := t.r.bareMetalInstanceTypesClient.Get(ctx, privatev1.BareMetalInstanceTypesGetRequest_builder{
+			Id: t.bareMetalInstance.GetSpec().GetInstanceType(),
+		}.Build())
+		if err != nil {
+			return fmt.Errorf("failed to get instance type '%s': %w", t.bareMetalInstance.GetSpec().GetInstanceType(), err)
+		}
+
+		// Map host_label_selector.match_labels to CRD's Selector.HostSelector
+		instanceType := instanceTypeResp.GetObject()
+		if instanceType.GetSpec().HasHostLabelSelector() {
+			matchLabels := instanceType.GetSpec().GetHostLabelSelector().GetMatchLabels()
+			if len(matchLabels) > 0 {
+				if object.Spec.Selector.HostSelector == nil {
+					object.Spec.Selector.HostSelector = make(map[string]string)
+				}
+				for key, value := range matchLabels {
+					object.Spec.Selector.HostSelector[key] = value
+				}
+			}
+		}
+	} else {
+		// Backward compatibility: use default host type when instance_type is not set
+		object.Spec.HostType = defaultHostType
+	}
 	object.Spec.TemplateID = catalogItemResp.GetObject().GetTemplate()
 	object.Spec.TemplateParameters = ""
 	object.Spec.RunStrategy = bmfov1alpha1.RunStrategyUnspecified
