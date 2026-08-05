@@ -122,6 +122,9 @@ func (c *runnerContext) run(cmd *cobra.Command, args []string) error {
 	if c.cpuCores <= 0 {
 		return fmt.Errorf("cpu-cores must be greater than zero")
 	}
+	if c.cpuThreadsPerCore < 0 {
+		return fmt.Errorf("cpu-threads-per-core must not be negative")
+	}
 	if c.cpuArchitecture == "" {
 		return fmt.Errorf("cpu-architecture is required")
 	}
