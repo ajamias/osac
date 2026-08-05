@@ -254,14 +254,6 @@ type BareMetalInstanceStatus struct {
 	// RestartTrigger is the observed restart version of the instance
 	// +kubebuilder:validation:Optional
 	RestartTrigger int64 `json:"restartTrigger"`
-	// ClaimedHostID is the ID of the host that was claimed during host selection.
-	// Persisted to support idempotency and restart recovery.
-	// +kubebuilder:validation:Optional
-	ClaimedHostID string `json:"claimedHostID,omitempty"`
-	// HostLabelSelector contains the labels that were used for host selection.
-	// Persisted for observability and debugging.
-	// +kubebuilder:validation:Optional
-	HostLabelSelector map[string]string `json:"hostLabelSelector,omitempty"`
 }
 
 // GetPoolID returns the owning BareMetalPool UID if the BareMetalInstance is owned by a BareMetalPool.

@@ -473,9 +473,10 @@ var _ = Describe("BareMetalInstance Controller", func() {
 						Expect(failedCondition).NotTo(BeNil())
 						Expect(failedCondition.Status).To(Equal(metav1.ConditionFalse))
 
-						// Check persisted state
-						Expect(hl.Status.ClaimedHostID).To(Equal("gpu-host-123"))
-						Expect(hl.Status.HostLabelSelector).To(Equal(map[string]string{
+						// Check that claimed host ID is already persisted in spec.ExternalHostID
+						Expect(hl.Spec.ExternalHostID).To(Equal("gpu-host-123"))
+						// Check that selector labels are already in spec.Selector.HostSelector
+						Expect(hl.Spec.Selector.HostSelector).To(Equal(map[string]string{
 							"accelerator": "gpu",
 							"size":        "large",
 						}))
@@ -571,8 +572,8 @@ var _ = Describe("BareMetalInstance Controller", func() {
 						Expect(condition.Status).To(Equal(metav1.ConditionTrue))
 						Expect(condition.Reason).To(Equal(v1alpha1.HostConditionReasonHostFound))
 
-						// Check persisted state
-						Expect(hl.Status.ClaimedHostID).To(Equal("legacy-host-456"))
+						// Check that claimed host ID is already persisted in spec.ExternalHostID
+						Expect(hl.Spec.ExternalHostID).To(Equal("legacy-host-456"))
 
 						return nil
 					}
@@ -590,8 +591,7 @@ var _ = Describe("BareMetalInstance Controller", func() {
 		Context("when resuming from persisted host ID", func() {
 			BeforeEach(func() {
 				bareMetalInstance.Spec.ExternalHostID = "persisted-host-789"
-				bareMetalInstance.Status.ClaimedHostID = "persisted-host-789"
-				bareMetalInstance.Status.HostLabelSelector = map[string]string{
+				bareMetalInstance.Spec.Selector.HostSelector = map[string]string{
 					"tier": "premium",
 				}
 			})
@@ -612,9 +612,9 @@ var _ = Describe("BareMetalInstance Controller", func() {
 					statusUpdateCalled = true
 					hl := obj.(*v1alpha1.BareMetalInstance)
 
-					// Status fields should remain unchanged from initial state
-					Expect(hl.Status.ClaimedHostID).To(Equal("persisted-host-789"))
-					Expect(hl.Status.HostLabelSelector).To(Equal(map[string]string{
+					// Spec fields should remain unchanged from initial state
+					Expect(hl.Spec.ExternalHostID).To(Equal("persisted-host-789"))
+					Expect(hl.Spec.Selector.HostSelector).To(Equal(map[string]string{
 						"tier": "premium",
 					}))
 

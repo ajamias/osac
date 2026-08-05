@@ -211,11 +211,6 @@ spec:
           status:
             description: BareMetalInstanceStatus defines the observed state of BareMetalInstance.
             properties:
-              claimedHostID:
-                description: |-
-                  ClaimedHostID is the ID of the host that was claimed during host selection.
-                  Persisted to support idempotency and restart recovery.
-                type: string
               conditions:
                 description: Conditions holds an array of metav1.Condition describing
                   host state.
@@ -278,13 +273,6 @@ spec:
                 description: DesiredConfigVersion is a hash of the spec, used to detect
                   spec changes and control retry behavior.
                 type: string
-              hostLabelSelector:
-                additionalProperties:
-                  type: string
-                description: |-
-                  HostLabelSelector contains the labels that were used for host selection.
-                  Persisted for observability and debugging.
-                type: object
               phase:
                 description: Phase provides a single-value overview of the state of
                   the BareMetalInstance
