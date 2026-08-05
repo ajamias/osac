@@ -412,3 +412,28 @@ func getNestedLabel(node *nodes.Node, labelKey string) (string, bool) {
 	}
 	return "", false
 }
+
+// validateMatchExpressions validates that all label keys and values are safe for Ironic metadata usage
+func validateMatchExpressions(matchExpressions map[string]string) error {
+	if matchExpressions == nil {
+		return nil
+	}
+
+	for key := range matchExpressions {
+		if key == "" {
+			return fmt.Errorf("invalid match expression: empty label key is not allowed")
+		}
+
+		// Check for reserved OSAC label keys that would conflict with internal usage
+		if key == BareMetalInstanceIDLabel || key == ManagedByLabel {
+			return fmt.Errorf("invalid match expression: %q is a reserved label key", key)
+		}
+
+		// Validate key doesn't contain spaces or other problematic characters
+		if strings.Contains(key, " ") {
+			return fmt.Errorf("invalid label key %q: label keys cannot contain spaces", key)
+		}
+	}
+
+	return nil
+}
