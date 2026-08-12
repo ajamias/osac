@@ -152,7 +152,9 @@ var _ = Describe("BareMetalInstance Metal3 Integration", func() {
 			bmi := &v1alpha1.BareMetalInstance{
 				ObjectMeta: metav1.ObjectMeta{Name: bmiName, Namespace: metal3TestNS},
 				Spec: v1alpha1.BareMetalInstanceSpec{
-					HostType:   "gpu-node",
+					Selector: v1alpha1.HostSelectorSpec{
+						HostSelector: map[string]string{"type": "gpu-node"},
+					},
 					TemplateID: shared.OsacNoopTemplate,
 				},
 			}
@@ -200,7 +202,9 @@ var _ = Describe("BareMetalInstance Metal3 Integration", func() {
 			bmi := &v1alpha1.BareMetalInstance{
 				ObjectMeta: metav1.ObjectMeta{Name: bmiName, Namespace: metal3TestNS},
 				Spec: v1alpha1.BareMetalInstanceSpec{
-					HostType:    "compute",
+					Selector: v1alpha1.HostSelectorSpec{
+						HostSelector: map[string]string{"type": "compute"},
+					},
 					TemplateID:  shared.OsacNoopTemplate,
 					RunStrategy: v1alpha1.RunStrategyAlways,
 				},
@@ -261,7 +265,9 @@ var _ = Describe("BareMetalInstance Metal3 Integration", func() {
 			bmi := &v1alpha1.BareMetalInstance{
 				ObjectMeta: metav1.ObjectMeta{Name: bmiName, Namespace: metal3TestNS},
 				Spec: v1alpha1.BareMetalInstanceSpec{
-					HostType:   "storage",
+					Selector: v1alpha1.HostSelectorSpec{
+						HostSelector: map[string]string{"type": "storage"},
+					},
 					TemplateID: shared.OsacNoopTemplate,
 				},
 			}
@@ -311,7 +317,9 @@ var _ = Describe("BareMetalInstance Metal3 Integration", func() {
 				bmi := &v1alpha1.BareMetalInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: bmiName, Namespace: metal3TestNS},
 					Spec: v1alpha1.BareMetalInstanceSpec{
-						HostType:   "nonexistent-type",
+						Selector: v1alpha1.HostSelectorSpec{
+							HostSelector: map[string]string{"type": "nonexistent-type"},
+						},
 						TemplateID: shared.OsacNoopTemplate,
 					},
 				}
@@ -354,7 +362,9 @@ var _ = Describe("BareMetalInstance Metal3 Integration", func() {
 				bmi := &v1alpha1.BareMetalInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: bmiName, Namespace: metal3TestNS},
 					Spec: v1alpha1.BareMetalInstanceSpec{
-						HostType:       "contested",
+						Selector: v1alpha1.HostSelectorSpec{
+							HostSelector: map[string]string{"type": "contested"},
+						},
 						TemplateID:     shared.OsacNoopTemplate,
 						ExternalHostID: metal3TestNS + "/" + bmhName,
 					},

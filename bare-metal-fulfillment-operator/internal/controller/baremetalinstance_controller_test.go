@@ -258,7 +258,9 @@ var _ = Describe("BareMetalInstance Controller", func() {
 					},
 				},
 				Spec: v1alpha1.BareMetalInstanceSpec{
-					HostType: hostType,
+					Selector: v1alpha1.HostSelectorSpec{
+						HostSelector: map[string]string{"type": hostType},
+					},
 				},
 			}
 		})
@@ -302,9 +304,7 @@ var _ = Describe("BareMetalInstance Controller", func() {
 		Context("when a free host is found", func() {
 			BeforeEach(func() {
 				mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
-					Expect(matchExpressions["hostType"]).To(Equal(hostType))
-					Expect(matchExpressions["managedBy"]).To(Equal(shared.OsacDefaultManagedByValue))
-					Expect(matchExpressions["provisionState"]).To(Equal(shared.OsacDefaultProvisionStateValue))
+					Expect(matchExpressions).To(Equal(map[string]string{"type": hostType}))
 					return &inventory.Host{
 						InventoryHostID: "host-abc-123",
 						HostClass:       hostClass,
@@ -352,7 +352,7 @@ var _ = Describe("BareMetalInstance Controller", func() {
 			})
 		})
 
-		Context("when selector contains empty string values for managedBy and provisionState", func() {
+		Context("when selector contains empty string values", func() {
 			BeforeEach(func() {
 				bareMetalInstance.Spec.Selector = v1alpha1.HostSelectorSpec{
 					HostSelector: map[string]string{
@@ -361,13 +361,15 @@ var _ = Describe("BareMetalInstance Controller", func() {
 					},
 				}
 				mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
-					Expect(matchExpressions["managedBy"]).To(Equal(shared.OsacDefaultManagedByValue))
-					Expect(matchExpressions["provisionState"]).To(Equal(shared.OsacDefaultProvisionStateValue))
+					Expect(matchExpressions).To(Equal(map[string]string{
+						"managedBy":      "",
+						"provisionState": "",
+					}))
 					return nil, nil
 				}
 			})
 
-			It("should apply defaults when selector values are empty strings", func() {
+			It("should pass selector values as-is to FindFreeHost", func() {
 				_, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -422,6 +424,140 @@ var _ = Describe("BareMetalInstance Controller", func() {
 				Expect(result).To(Equal(ctrl.Result{}))
 			})
 		})
+
+		Context("when Selector.HostSelector has labels (label-based selection)", func() {
+			BeforeEach(func() {
+				bareMetalInstance.Spec.Selector = v1alpha1.HostSelectorSpec{
+					HostSelector: map[string]string{
+						"gpu": "nvidia-a100",
+						"cpu": "intel-xeon",
+					},
+				}
+			})
+
+			Context("and a matching host is found", func() {
+				BeforeEach(func() {
+					mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
+						// Verify labels are passed directly without additional fields
+						Expect(matchExpressions).To(Equal(map[string]string{
+							"gpu": "nvidia-a100",
+							"cpu": "intel-xeon",
+						}))
+						return &inventory.Host{
+							InventoryHostID: "host-abc-123",
+							HostClass:       hostClass,
+						}, nil
+					}
+					mockInvClient.assignHostFunc = func(ctx context.Context, inventoryHostID string, bareMetalInstanceID string, labels map[string]string) (*inventory.Host, error) {
+						return &inventory.Host{
+							InventoryHostID: "host-abc-123",
+							HostClass:       hostClass,
+						}, nil
+					}
+				})
+
+				It("should set HostConditionAllocated to True and persist ExternalHostID", func() {
+					mockK8sClient.updateFunc = func(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+						hl := obj.(*v1alpha1.BareMetalInstance)
+						Expect(hl.Spec.ExternalHostID).To(Equal("host-abc-123"))
+
+						// Verify HostConditionAllocated condition is set to True
+						condition := hl.GetStatusCondition(v1alpha1.HostConditionAllocated)
+						Expect(condition).NotTo(BeNil())
+						Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+						return nil
+					}
+
+					result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result).To(Equal(ctrl.Result{}))
+				})
+			})
+
+			Context("and no matching hosts are found", func() {
+				BeforeEach(func() {
+					mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
+						// Verify labels are passed correctly
+						Expect(matchExpressions).To(Equal(map[string]string{
+							"gpu": "nvidia-a100",
+							"cpu": "intel-xeon",
+						}))
+						return nil, nil
+					}
+				})
+
+				It("should set HostConditionAllocated to False with reason NoMatchingHosts", func() {
+					result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(Equal(DefaultNoFreeHostsPollIntervalDuration))
+
+					// Verify HostConditionAllocated condition is set to False with correct reason
+					condition := bareMetalInstance.GetStatusCondition(v1alpha1.HostConditionAllocated)
+					Expect(condition).NotTo(BeNil())
+					Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+					Expect(condition.Reason).To(Equal(v1alpha1.HostConditionReasonNoMatchingHosts))
+				})
+			})
+		})
+
+		Context("when Selector.HostSelector is empty (validation failure)", func() {
+			BeforeEach(func() {
+				bareMetalInstance.Spec.Selector = v1alpha1.HostSelectorSpec{
+					HostSelector: map[string]string{},
+				}
+			})
+
+			It("should fail with appropriate error condition", func() {
+				result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+				Expect(err).To(HaveOccurred())
+				Expect(result).To(Equal(ctrl.Result{}))
+
+				// Verify HostConditionAllocated condition is set to False
+				condition := bareMetalInstance.GetStatusCondition(v1alpha1.HostConditionAllocated)
+				Expect(condition).NotTo(BeNil())
+				Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+			})
+		})
+
+		Context("when resuming from persisted host ID", func() {
+			BeforeEach(func() {
+				bareMetalInstance.Spec.ExternalHostID = "existing-host-123"
+				bareMetalInstance.Spec.Selector = v1alpha1.HostSelectorSpec{
+					HostSelector: map[string]string{
+						"gpu": "nvidia-a100",
+					},
+				}
+				mockInvClient.assignHostFunc = func(ctx context.Context, inventoryHostID string, bareMetalInstanceID string, labels map[string]string) (*inventory.Host, error) {
+					Expect(inventoryHostID).To(Equal("existing-host-123"))
+					return &inventory.Host{
+						InventoryHostID: "existing-host-123",
+						HostClass:       hostClass,
+					}, nil
+				}
+			})
+
+			It("should proceed to AssignHost without calling FindFreeHost", func() {
+				var findFreeHostCalled bool
+				mockInvClient.findFreeHostFunc = func(ctx context.Context, matchExpressions map[string]string) (*inventory.Host, error) {
+					findFreeHostCalled = true
+					return nil, nil
+				}
+
+				mockK8sClient.updateFunc = func(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+					return nil
+				}
+
+				result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(Equal(ctrl.Result{}))
+				Expect(findFreeHostCalled).To(BeFalse())
+				Expect(bareMetalInstance.Status.Phase).To(Equal(v1alpha1.BareMetalInstancePhaseProgressing))
+			})
+		})
 	})
 
 	Describe("reconcileManagement", func() {
@@ -438,7 +574,9 @@ var _ = Describe("BareMetalInstance Controller", func() {
 					},
 				},
 				Spec: v1alpha1.BareMetalInstanceSpec{
-					HostType: hostType,
+					Selector: v1alpha1.HostSelectorSpec{
+						HostSelector: map[string]string{"type": hostType},
+					},
 				},
 			}
 		})
@@ -788,7 +926,9 @@ var _ = Describe("BareMetalInstance Controller", func() {
 					},
 				},
 				Spec: v1alpha1.BareMetalInstanceSpec{
-					HostType:       hostType,
+					Selector: v1alpha1.HostSelectorSpec{
+						HostSelector: map[string]string{"type": hostType},
+					},
 					ExternalHostID: "host-123",
 					HostClass:      hostClass,
 					TemplateID:     "image-provision",
