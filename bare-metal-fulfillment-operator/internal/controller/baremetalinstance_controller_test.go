@@ -303,6 +303,10 @@ var _ = Describe("BareMetalInstance Controller", func() {
 			})
 
 			It("should set phase to Failed and requeue after poll interval", func() {
+				mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+					return nil
+				}
+
 				result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
 
 				Expect(err).NotTo(HaveOccurred())
@@ -332,6 +336,9 @@ var _ = Describe("BareMetalInstance Controller", func() {
 					Expect(hl.Spec.ExternalHostID).To(Equal("host-abc-123"))
 					return nil
 				}
+				mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+					return nil
+				}
 
 				result, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
 
@@ -357,6 +364,9 @@ var _ = Describe("BareMetalInstance Controller", func() {
 			})
 
 			It("should forward the user-specified selector values to FindFreeHost", func() {
+				mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+					return nil
+				}
 				_, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -379,7 +389,10 @@ var _ = Describe("BareMetalInstance Controller", func() {
 				}
 			})
 
-			It("should pass selector values as-is to FindFreeHost", func() {
+			It("should apply defaults when selector values are empty strings", func() {
+				mockK8sClient.statusUpdateFunc = func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+					return nil
+				}
 				_, err := reconciler.reconcileInventory(ctx, bareMetalInstance)
 				Expect(err).NotTo(HaveOccurred())
 			})
