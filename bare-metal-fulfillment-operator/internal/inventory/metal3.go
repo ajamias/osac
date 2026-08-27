@@ -144,8 +144,6 @@ func validateBareMetalHostCRD(restConfig *rest.Config) error {
 // Keys and values become BareMetalHost label selectors, so they must satisfy the
 // Kubernetes label syntax:
 // https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
-// Empty values are allowed because FindFreeHost skips them rather than emitting a
-// label filter.
 func validateMetal3MatchExpressions(matchExpressions map[string]string) error {
 	for key, value := range matchExpressions {
 		if errs := validation.IsQualifiedName(key); len(errs) > 0 {
@@ -153,7 +151,7 @@ func validateMetal3MatchExpressions(matchExpressions map[string]string) error {
 		}
 
 		if value == "" {
-			continue
+			return fmt.Errorf("invalid matchExpression: empty value not allowed for key %q", key)
 		}
 
 		if errs := validation.IsValidLabelValue(value); len(errs) > 0 {
@@ -178,11 +176,6 @@ func (m *Metal3Client) FindFreeHost(ctx context.Context, matchExpressions map[st
 	for key, value := range matchExpressions {
 		// Skip keys that have special client-side handling
 		if key == "managedBy" || key == "provisionState" {
-			continue
-		}
-
-		// Skip empty values
-		if value == "" {
 			continue
 		}
 

@@ -188,6 +188,11 @@ func (c *OpenStackClient) findFreeHost(ctx context.Context, matchExpressions map
 		labelMatchExpressions[key] = value
 	}
 
+	// Note: server-side ResourceClass filtering is intentionally not used.
+	// Label-based selection supports arbitrary keys (gpu=a100, datacenter=west)
+	// that cannot be mapped to a single resource_class value. All filtering
+	// is done client-side via osac_labels. Ironic nodes must have osac_labels
+	// populated for this to work correctly.
 	listOpts := nodes.ListOpts{
 		Fields: []string{
 			"uuid",
@@ -492,21 +497,25 @@ func (c *OpenStackClient) getHostNICs(ctx context.Context, inventoryHostID strin
 	return nics, nil
 }
 
-// validateMatchExpressions validates matchExpressions keys for the OpenStack backend.
-// Rejects empty keys and keys containing spaces. All other keys are valid and will be
+// validateMatchExpressions validates matchExpressions keys and values for the OpenStack backend.
+// Rejects empty keys, keys containing spaces, and empty values. All other keys are valid and will be
 // used as host selector labels for filtering nodes.
 func validateMatchExpressions(matchExpressions map[string]string) error {
 	if len(matchExpressions) == 0 {
 		return fmt.Errorf("invalid matchExpressions: empty map")
 	}
 
-	for key := range matchExpressions {
+	for key, value := range matchExpressions {
 		if key == "" {
 			return fmt.Errorf("invalid matchExpression: empty key not allowed")
 		}
 
 		if strings.Contains(key, " ") {
 			return fmt.Errorf("invalid matchExpression: key %q contains spaces", key)
+		}
+
+		if value == "" {
+			return fmt.Errorf("invalid matchExpression: empty value not allowed for key %q", key)
 		}
 	}
 	return nil

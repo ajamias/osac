@@ -358,9 +358,10 @@ func TestValidateMetal3MatchExpressions(t *testing.T) {
 			wantErrorMsg:     "not a valid label value",
 		},
 		{
-			name:             "empty value is allowed",
+			name:             "empty value is rejected",
 			matchExpressions: map[string]string{"datacenter": ""},
-			wantError:        false,
+			wantError:        true,
+			wantErrorMsg:     "empty value not allowed",
 		},
 		{
 			name:             "managedBy key is allowed (specially handled)",

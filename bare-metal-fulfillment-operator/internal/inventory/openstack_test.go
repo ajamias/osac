@@ -54,8 +54,10 @@ func TestValidateMatchExpressions(t *testing.T) {
 			errorContains:    "empty key",
 		},
 		{
-			name:             "empty value is valid",
+			name:             "empty value is rejected",
 			matchExpressions: map[string]string{"key1": ""},
+			wantError:        true,
+			errorContains:    "empty value not allowed",
 		},
 		{
 			name:             "key with special characters",
@@ -211,16 +213,6 @@ func TestNodeMatchesLabels(t *testing.T) {
 			},
 			matchExpressions: map[string]string{"version": "1.2"},
 			want:             false,
-		},
-		{
-			name: "empty value matches empty value",
-			node: &nodes.Node{
-				Extra: map[string]interface{}{
-					"osac_labels": map[string]interface{}{"tag": ""},
-				},
-			},
-			matchExpressions: map[string]string{"tag": ""},
-			want:             true,
 		},
 		{
 			name: "non-string label value does not match",

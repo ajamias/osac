@@ -344,10 +344,14 @@ func (r *BareMetalPoolReconciler) listAndGroupBareMetalInstances(ctx context.Con
 		if !bareMetalInstanceList.Items[i].DeletionTimestamp.IsZero() {
 			continue
 		}
-		// Read hostType from annotation (required for label-based selection)
+		// Read hostType from annotation (pool-created instances), fall back to label
+		// (hand-created instances or pre-migration instances)
 		hostType := bareMetalInstanceList.Items[i].Annotations[HostTypeAnnotationKey]
 		if hostType == "" {
-			log.Error(nil, "BareMetalInstance missing required host-type annotation - instance was created before label-based selection migration", "name", bareMetalInstanceList.Items[i].Name)
+			hostType = bareMetalInstanceList.Items[i].Labels[HostTypeLabelKey]
+		}
+		if hostType == "" {
+			log.Error(nil, "BareMetalInstance missing host-type in both annotation and label", "name", bareMetalInstanceList.Items[i].Name)
 			continue
 		}
 		currentBareMetalInstances[hostType] = append(currentBareMetalInstances[hostType], &bareMetalInstanceList.Items[i])

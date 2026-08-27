@@ -121,7 +121,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -147,7 +147,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -174,7 +174,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -201,7 +201,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -225,7 +225,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -250,7 +250,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -274,7 +274,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -305,7 +305,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -335,7 +335,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -362,7 +362,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -393,7 +393,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -428,7 +428,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -460,7 +460,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -484,7 +484,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -515,7 +515,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -546,7 +546,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -582,7 +582,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -615,7 +615,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -650,7 +650,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -695,7 +695,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -746,7 +746,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -770,7 +770,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -805,7 +805,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -839,7 +839,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
@@ -906,28 +906,35 @@ var _ = Describe("mutateBMI", func() {
 		Expect(obj.Spec.Selector.HostSelector["size"]).To(Equal("large"))
 	})
 
-	It("should leave HostSelector empty when instance_type is not set", func() {
+	It("should return error when instance_type has empty host_label_selector", func() {
 		catalogItemsClient := defaultFakeCatalogItemsClient()
+		instanceTypesClient := &fakeBareMetalInstanceTypesClient{
+			getResponse: privatev1.BareMetalInstanceTypesGetResponse_builder{
+				Object: privatev1.BareMetalInstanceType_builder{
+					Spec: privatev1.BareMetalInstanceTypeSpec_builder{}.Build(),
+				}.Build(),
+			}.Build(),
+		}
 
 		t := &task{
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        instanceTypesClient,
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: "bmi-test",
 				Spec: privatev1.BareMetalInstanceSpec_builder{
 					CatalogItem:  privatev1.BareMetalInstanceCatalogItemReference_builder{Id: "catalog-1"}.Build(),
-					InstanceType: privatev1.BareMetalInstanceTypeLocalReference_builder{Id: "default-type"}.Build(),
+					InstanceType: privatev1.BareMetalInstanceTypeLocalReference_builder{Id: "empty-type"}.Build(),
 				}.Build(),
 			}.Build(),
 		}
 
 		var obj bmfov1alpha1.BareMetalInstance
 		err := t.mutateBMI(ctx, &obj)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(obj.Spec.Selector.HostSelector).To(BeEmpty())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("has no host_label_selector"))
 	})
 
 	It("should return error when instance_type lookup fails", func() {
@@ -990,8 +997,8 @@ var _ = Describe("mutateBMI", func() {
 
 		var obj bmfov1alpha1.BareMetalInstance
 		err := t.mutateBMI(ctx, &obj)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(obj.Spec.Selector.HostSelector).To(BeEmpty())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("has no host_label_selector"))
 	})
 
 	It("should fall back to the template host_type when instance_type is absent", func() {
@@ -1009,7 +1016,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 				bareMetalInstanceTemplatesClient:    templatesClient,
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
@@ -1041,7 +1048,7 @@ var _ = Describe("mutateBMI", func() {
 			r: &function{
 				logger:                              logger,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 				bareMetalInstanceTemplatesClient:    templatesClient,
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
@@ -1106,7 +1113,7 @@ var _ = Describe("update", func() {
 				logger:                              logger,
 				hubCache:                            hubCache,
 				bareMetalInstanceCatalogItemsClient: catalogItemsClient,
-				bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+				bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			},
 			bareMetalInstance: privatev1.BareMetalInstance_builder{
 				Id: bmiID,
@@ -2362,7 +2369,7 @@ var _ = Describe("Kubernetes validation error handling", func() {
 			hubCache:                            hubCache,
 			bareMetalInstancesClient:            bareMetalInstancesClient,
 			bareMetalInstanceCatalogItemsClient: defaultFakeCatalogItemsClient(),
-			bareMetalInstanceTypesClient:        &fakeBareMetalInstanceTypesClient{},
+			bareMetalInstanceTypesClient:        defaultFakeBareMetalInstanceTypesClient(),
 			maskCalculator:                      masks.NewCalculator().Build(),
 		}
 
@@ -2403,6 +2410,22 @@ type fakeCatalogItemsClient struct {
 
 func (c *fakeCatalogItemsClient) Get(ctx context.Context, req *privatev1.BareMetalInstanceCatalogItemsGetRequest, opts ...grpc.CallOption) (*privatev1.BareMetalInstanceCatalogItemsGetResponse, error) {
 	return c.getResponse, c.getError
+}
+
+func defaultFakeBareMetalInstanceTypesClient() *fakeBareMetalInstanceTypesClient {
+	return &fakeBareMetalInstanceTypesClient{
+		getResponse: privatev1.BareMetalInstanceTypesGetResponse_builder{
+			Object: privatev1.BareMetalInstanceType_builder{
+				Spec: privatev1.BareMetalInstanceTypeSpec_builder{
+					HostLabelSelector: privatev1.BareMetalLabelSelector_builder{
+						MatchLabels: map[string]string{
+							"hostType": "compute",
+						},
+					}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}
 }
 
 // fakeBareMetalInstanceTypesClient is a test double for the BareMetalInstanceTypesClient.
