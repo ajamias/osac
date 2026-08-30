@@ -1883,10 +1883,12 @@ var _ = Describe("BareMetalInstance network handoff reboot (OSAC-1448)", func() 
 				UID:       "test-uid-handoff",
 			},
 			Spec: v1alpha1.BareMetalInstanceSpec{
-				HostType:       "fc430",
 				ExternalHostID: "test-host-123",
-				HostClass:      "metal3",
-				TemplateID:     "ubuntu_22_04",
+				Selector: v1alpha1.HostSelectorSpec{
+					HostSelector: map[string]string{"type": "fc430"},
+				},
+				HostClass:  "metal3",
+				TemplateID: "ubuntu_22_04",
 				NetworkAttachments: []v1alpha1.BareMetalNetworkAttachment{
 					{
 						SubnetRef: "subnet-tenant-1",
@@ -2159,10 +2161,12 @@ var _ = Describe("BareMetalInstance network offboard shutdown (OSAC-1448)", func
 				UID:       "test-uid-offboard",
 			},
 			Spec: v1alpha1.BareMetalInstanceSpec{
-				HostType:       "fc430",
 				ExternalHostID: "test-host-offboard",
-				HostClass:      "metal3",
-				TemplateID:     "ubuntu_22_04",
+				Selector: v1alpha1.HostSelectorSpec{
+					HostSelector: map[string]string{"type": "fc430"},
+				},
+				HostClass:  "metal3",
+				TemplateID: "ubuntu_22_04",
 				NetworkAttachments: []v1alpha1.BareMetalNetworkAttachment{
 					{SubnetRef: "subnet-1", Interface: "eth0", Primary: true},
 				},
