@@ -179,6 +179,14 @@ spec:
                       (for example managedBy, topology, rack, zone). Required for label-based host selection.
                     minProperties: 1
                     type: object
+                    x-kubernetes-validations:
+                    - message: selector keys must not contain spaces
+                      rule: self.all(key, !key.contains(' '))
+                    - message: selector values must not be empty
+                      rule: self.all(key, self[key] != '')
+                    - message: provisionState is a reserved key and cannot be set
+                        in hostSelector
+                      rule: '!self.exists(key, key == ''provisionState'')'
                 required:
                 - hostSelector
                 type: object

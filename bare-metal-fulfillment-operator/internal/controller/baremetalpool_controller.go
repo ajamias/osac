@@ -610,8 +610,7 @@ func (r *BareMetalPoolReconciler) createBareMetalInstanceCR(
 	templateParameters := ""
 	selector := v1alpha1.HostSelectorSpec{
 		HostSelector: map[string]string{
-			"managedBy":      shared.OsacDefaultManagedByValue,
-			"provisionState": shared.OsacDefaultProvisionStateValue,
+			"managedBy": shared.OsacDefaultManagedByValue,
 		},
 	}
 	if currentProfile != nil {

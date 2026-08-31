@@ -855,10 +855,10 @@ type BareMetalInstanceSpec_builder struct {
 	//
 	// This can't be modified after the bare metal instance is created.
 	Template *BareMetalInstanceTemplateReference
-	// Reference to a BareMetalInstanceType that determines the hardware profile for this instance.
-	// When set, the system resolves this to host selection labels used during provisioning.
-	// When omitted, host selection falls back to the catalog item's template host_type.
-	// Optional; immutable after creation.
+	// Reference to a BareMetalInstanceType. Optional; immutable after creation.
+	// When set, the system resolves this to the instance type's host_label_selector and maps it
+	// to the CRD's Selector.HostSelector for host selection. When omitted, host selection falls
+	// back to the catalog item's template host_type.
 	InstanceType *BareMetalInstanceTypeLocalReference
 }
 

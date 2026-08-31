@@ -228,6 +228,9 @@ type HostSelectorSpec struct {
 	// (for example managedBy, topology, rack, zone). Required for label-based host selection.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:XValidation:rule="self.all(key, !key.contains(' '))",message="selector keys must not contain spaces"
+	// +kubebuilder:validation:XValidation:rule="self.all(key, self[key] != '')",message="selector values must not be empty"
+	// +kubebuilder:validation:XValidation:rule="!self.exists(key, key == 'provisionState')",message="provisionState is a reserved key and cannot be set in hostSelector"
 	HostSelector map[string]string `json:"hostSelector"`
 }
 
